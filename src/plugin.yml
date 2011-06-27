@@ -1,0 +1,10 @@
+name: VoxelViewer
+main: com.thevoxelbox.viewer.VoxelViewer
+version: 0.1
+commands:
+  vvcache:
+    description: Rebuild VoxelViewer cache completely. Requires OP status.
+    usage: /vvcache
+  vvlen:
+    description: Get the number of chunks currently in the queue. Requires OP status.
+    usage: /vvlen

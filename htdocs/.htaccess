@@ -1,0 +1,4 @@
+<Files ~ "\.json\.gz$">
+	AddEncoding x-gzip .gz
+	ForceType application/json
+</Files>
