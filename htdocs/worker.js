@@ -110,13 +110,11 @@ onmessage = function( event ) {
 			getChunk( message.world, message.x, message.z );
 			break;
 	}
-}
+};
 
 onerror = function( event ) {
 	postMessage( { action: 'error', event: event } );
-}
-
-const t = 15 / 256;
+};
 
 var blocks;
 function getChunk( world, chunkX, chunkZ ) {
@@ -164,20 +162,52 @@ function getChunk( world, chunkX, chunkZ ) {
 		for ( var x = Math.max( 0, _x - 3 ); x < Math.min( 16, _x + 3 ); x++ ) {
 			for ( var y = Math.max( 0, _y - 3 ); y < Math.min( 128, _y + 3 ); y++ ) {
 				for ( var z = Math.max( 0, _z - 3 ); z < Math.min( 16, _z + 3 ); z++ ) {
-					light += blocks[x][y][z].emittedlight / ( Math.sqrt( ( _x - x ) * ( _x - x ), ( _y - y ) * ( _y - y ), ( _z - z ) * ( _z - z ) ) + 1 );
+					light += Math.max( 0, blocks[x][y][z].emittedlight ) / ( Math.sqrt( ( _x - x ) * ( _x - x ), ( _y - y ) * ( _y - y ), ( _z - z ) * ( _z - z ) ) + 1 );
 				}
 			}
 		}
 	}
 
 	for ( var x = 0; x < 16; x++ ) {
-		for ( var y = 0; y < 127; y++ ) {
-			for ( var z = 0; z < 16; z++ ) {
-				blocks[x][y][z].light = Math.min( blocks[x][y][z].skylight + emitted( x, y, z ), 15 );
+		for ( var z = 0; z < 16; z++ ) {
+			for ( var y = 127; y >= 0; y-- ) {
+				if ( blocks[x][y][z].id )
+					break;
+				blocks[x][y][z].skylight = 15;
 			}
 		}
 	}
 
+	for ( var x = 0; x < 16; x++ ) {
+		for ( var y = 0; y < 128; y++ ) {
+			for ( var z = 0; z < 16; z++ ) {
+				blocks[x][y][z].light = blocks[x][Math.min( y + 1, 127 )][z].skylight + blocks[x][y][z].skylight// + emitted( x, y, z );
+			}
+		}
+	}
+
+	for ( var x = 0; x < 16; x++ ) {
+		for ( var y = 0; y < 128; y++ ) {
+			for ( var z = 0; z < 16; z++ ) {
+				for ( var i = -1; i <= 1; i += 2 ) {
+					for ( var j = -1; j <= 1; j += 2 ) {
+						if ( x + i < 0 || x + i > 15 || z + j < 0 || z + j > 15 )
+							continue;
+						if ( blocks[x][y][z].light < blocks[x + i][y][z + j].skylight )
+							blocks[x][y][z].light = ( blocks[x][y][z].light + blocks[x + i][y][z + j].skylight ) / 2;
+					}
+				}
+			}
+		}
+	}
+
+	for ( var x = 0; x < 16; x++ ) {
+		for ( var y = 0; y < 128; y++ ) {
+			for ( var z = 0; z < 16; z++ ) {
+				blocks[x][y][z].light = Math.min( Math.max( blocks[x][y][z].light * 16, 0 ), 255 );
+			}
+		}
+	}
 	var vertices = [], polys = [], normals = [], texcoords = [], lighting = [];
 
 	for ( var x = 0; x < 16; x++ ) {
@@ -187,7 +217,11 @@ function getChunk( world, chunkX, chunkZ ) {
 					continue;
 				}
 
-				if ( !blocks[x][y + 1] || !blocks[x][y + 1][z] || blockTypes.notOpaque.indexOf( blocks[x][y + 1][z].id ) != -1 ) {
+				if ( [blockTypes.LONG_GRASS, blockTypes.DEAD_BUSH, blockTypes.YELLOW_FLOWER, blockTypes.RED_ROSE].indexOf( blocks[x][y][z].id ) != -1 ) {
+					continue; // TODO
+				}
+
+				if ( !blocks[x][y + 1] || !blocks[x][y + 1][z] || ( blocks[x][y + 1][z].id != blocks[x][y][z].id && blockTypes.notOpaque.indexOf( blocks[x][y + 1][z].id ) != -1 ) ) {
 					if ( specialVerts( blocks[x][y][z].id, faces.TOP, x + chunkX * 16, y, z + chunkZ * 16 ) )
 						vertices.push.apply( vertices, specialVerts( blocks[x][y][z].id, faces.TOP, x + chunkX * 16, y, z + chunkZ * 16 ) );
 					else
@@ -209,14 +243,14 @@ function getChunk( world, chunkX, chunkZ ) {
 					u = uv[0];
 					v = uv[1];
 					texcoords.push(
-						u / 16,     v / 16,
-						u / 16 + t, v / 16,
-						u / 16 + t, v / 16 + t,
-						u / 16,     v / 16 + t
+						u * 16,      v * 16,
+						u * 16 + 15, v * 16,
+						u * 16 + 15, v * 16 + 15,
+						u * 16,      v * 16 + 15
 					);
 					lighting.push.apply( lighting, getLighting( x, y, z, faces.TOP ) );
 				}
-				if ( !blocks[x - 1] || !blocks[x - 1][y][z] || blockTypes.notOpaque.indexOf( blocks[x - 1][y][z].id ) != -1 ) {
+				if ( !blocks[x - 1] || !blocks[x - 1][y][z] || ( blocks[x - 1][y][z].id != blocks[x][y][z].id && blockTypes.notOpaque.indexOf( blocks[x - 1][y][z].id ) != -1 ) ) {
 					if ( specialVerts( blocks[x][y][z].id, faces.WEST, x + chunkX * 16, y, z + chunkZ * 16 ) )
 						vertices.push.apply( vertices, specialVerts( blocks[x][y][z].id, faces.WEST, x + chunkX * 16, y, z + chunkZ * 16 ) );
 					else
@@ -238,12 +272,70 @@ function getChunk( world, chunkX, chunkZ ) {
 					u = uv[0];
 					v = uv[1];
 					texcoords.push(
-						u / 16,     v / 16 + t,
-						u / 16 + t, v / 16 + t,
-						u / 16 + t, v / 16,
-						u / 16,     v / 16
+						u * 16,      v * 16 + 15,
+						u * 16 + 15, v * 16 + 15,
+						u * 16 + 15, v * 16,
+						u * 16,      v * 16
 					);
 					lighting.push.apply( lighting, getLighting( x, y, z, faces.WEST ) );
+				}
+				if ( !blocks[x][y][z - 1] || ( blocks[x][y][z - 1].id != blocks[x][y][z].id && blockTypes.notOpaque.indexOf( blocks[x][y][z - 1].id ) != -1 ) ) {
+					if ( specialVerts( blocks[x][y][z].id, faces.SOUTH, x + chunkX * 16, y, z + chunkZ * 16 ) )
+						vertices.push.apply( vertices, specialVerts( blocks[x][y][z].id, faces.SOUTH, x + chunkX * 16, y, z + chunkZ * 16 ) );
+					else
+						vertices.push(
+							x + chunkX * 16,     z + chunkZ * 16, y,
+							x + chunkX * 16 + 1, z + chunkZ * 16, y,
+							x + chunkX * 16 + 1, z + chunkZ * 16, y + 1,
+							x + chunkX * 16,     z + chunkZ * 16, y + 1
+						);
+					polys.push(
+						vertices.length / 3 - 4, vertices.length / 3 - 3, vertices.length / 3 - 2,
+						vertices.length / 3 - 4, vertices.length / 3 - 2, vertices.length / 3 - 1
+					);
+					normals.push(
+						0.0,  0.0,  1.0, 0.0,  0.0,  1.0, 0.0,  0.0,  1.0, 0.0,  0.0,  1.0
+					);
+					var uv, u, v;
+					uv = getUV( blocks[x][y][z], faces.SOUTH );
+					u = uv[0];
+					v = uv[1];
+					texcoords.push(
+						u * 16,      v * 16 + 15,
+						u * 16 + 15, v * 16 + 15,
+						u * 16 + 15, v * 16,
+						u * 16,      v * 16
+					);
+					lighting.push.apply( lighting, getLighting( x, y, z, faces.SOUTH ) );
+				}
+				if ( !blocks[x + 1] || !blocks[x + 1][y][z] || ( blocks[x + 1][y][z].id != blocks[x][y][z].id && blockTypes.notOpaque.indexOf( blocks[x + 1][y][z].id ) != -1 ) ) {
+					if ( specialVerts( blocks[x][y][z].id, faces.EAST, x + chunkX * 16, y, z + chunkZ * 16 ) )
+						vertices.push.apply( vertices, specialVerts( blocks[x][y][z].id, faces.SOUTH, x + chunkX * 16, y, z + chunkZ * 16 ) );
+					else
+						vertices.push(
+							x + chunkX * 16 + 1, z + chunkZ * 16,     y,
+							x + chunkX * 16 + 1, z + chunkZ * 16 + 1, y,
+							x + chunkX * 16 + 1, z + chunkZ * 16 + 1, y + 1,
+							x + chunkX * 16 + 1, z + chunkZ * 16,     y + 1
+						);
+					polys.push(
+						vertices.length / 3 - 4, vertices.length / 3 - 3, vertices.length / 3 - 2,
+						vertices.length / 3 - 4, vertices.length / 3 - 2, vertices.length / 3 - 1
+					);
+					normals.push(
+						1.0,  0.0,  0.0, 1.0,  0.0,  0.0, 1.0,  0.0,  0.0, 1.0,  0.0,  0.0
+					);
+					var uv, u, v;
+					uv = getUV( blocks[x][y][z], faces.EAST );
+					u = uv[0];
+					v = uv[1];
+					texcoords.push(
+						u * 16,      v * 16 + 15,
+						u * 16 + 15, v * 16 + 15,
+						u * 16 + 15, v * 16,
+						u * 16,      v * 16
+					);
+					lighting.push.apply( lighting, getLighting( x, y, z, faces.EAST ) );
 				}
 			}
 		}
@@ -263,14 +355,20 @@ const faces = {
 
 function getLighting( x, y, z, face ) {
 	function l(x, y, z) {
-		return blocks[Math.max( Math.min( x, 15 ), 0 )][Math.max( Math.min( y, 127 ), 0 )][Math.max( Math.min( z, 15 ), 0 )].light / 15;
+		if ( x < 0 || x > 15 || z < 0 || z > 15 )
+			y++;
+		return blocks[Math.max( Math.min( x, 15 ), 0 )][Math.max( Math.min( y, 127 ), 0 )][Math.max( Math.min( z, 15 ), 0 )].light;
 	}
 
 	switch ( face ) {
 		case faces.TOP:
-			return [l( x - 1, y + 1, z - 1 ), l( x + 1, y + 1, z - 1 ), l( x + 1, y + 1, z + 1 ), l( x - 1, y + 1, z + 1 )];
+			return [l( x - 1, y + 1, z - 1 ), 0, l( x + 1, y + 1, z - 1 ), 0, l( x + 1, y + 1, z + 1 ), 0, l( x - 1, y + 1, z + 1 ), 0];
 		case faces.WEST:
-			return [l( x - 1, y - 1, z - 1 ), l( x - 1, y - 1, z + 1 ), l( x - 1, y + 1, z + 1 ), l( x - 1, y + 1, z - 1 )];
+			return [l( x - 1, y - 1, z - 1 ), 0, l( x - 1, y - 1, z + 1 ), 0, l( x - 1, y + 1, z + 1 ), 0, l( x - 1, y + 1, z - 1 ), 0];
+		case faces.SOUTH:
+			return [l( x - 1, y - 1, z - 1 ), 0, l( x + 1, y - 1, z - 1 ), 0, l( x + 1, y + 1, z - 1 ), 0, l( x - 1, y + 1, z - 1 ), 0];
+		case faces.EAST:
+			return [l( x + 1, y - 1, z - 1 ), 0, l( x + 1, y - 1, z + 1 ), 0, l( x + 1, y + 1, z + 1 ), 0, l( x + 1, y + 1, z - 1 ), 0];
 	}
 }
 
@@ -293,6 +391,20 @@ function specialVerts( id, face, x, y, z ) {
 						x, z + 1, y,
 						x, z + 1, y + 0.25,
 						x, z,     y + 0.25
+					];
+				case faces.SOUTH:
+					return [
+						x,     z, y,
+						x + 1, z, y,
+						x + 1, z, y + 0.25,
+						x,     z, y + 0.25
+					];
+				case faces.EAST:
+					return [
+						x + 1, z,     y,
+						x + 1, z + 1, y,
+						x + 1, z + 1, y + 0.25,
+						x + 1, z,     y + 0.25
 					];
 				default:
 					return;
@@ -318,6 +430,19 @@ function getUV( block, face ) {
 					return [6, 2];
 			}
 			break;
+		case blockTypes.COBBLESTONE:
+			return [0, 1];
+		case blockTypes.SAND:
+			return [2, 1];
+		case blockTypes.SANDSTONE:
+			switch ( face ) {
+				case faces.TOP:
+					return [0, 11];
+				case faces.BOTTOM:
+					return [0, 13];
+				default:
+					return [0, 12];
+			}
 		case blockTypes.SNOW:
 		case blockTypes.SNOW_BLOCK:
 			return [2, 4];
@@ -335,7 +460,25 @@ function getUV( block, face ) {
 			return [3, 4];
 		case blockTypes.GRAVEL:
 			return [3, 1];
+		case blockTypes.GOLD_ORE:
+			return [0, 2];
+		case blockTypes.IRON_ORE:
+			return [1, 2];
+		case blockTypes.COAL_ORE:
+			return [2, 2];
+		case blockTypes.REDSTONE_ORE:
+		case blockTypes.GLOWING_REDSTONE_ORE:
+			return [3, 3];
+		case blockTypes.CACTUS:
+			switch ( face ) {
+				case faces.TOP:
+					return [5, 4];
+				case faces.BOTTOM:
+					return [7, 4];
+				default:
+					return [6, 4];
+			}
 	}
-	postMessage( blockTypes.name( id ) );
+	postMessage( { action: 'unknownBlockType', name: blockTypes.name( id ), id: id } );
 	return [-1, -1];
 }

@@ -1,0 +1,34 @@
+canvas, #loading {
+	border: 2px solid black;
+	-moz-box-shadow: black 2px 2px 2px;
+	-webkit-box-shadow: black 2px 2px 2px;
+	box-shadow: black 2px 2px 2px;
+	background-color: black;
+}
+
+#loaded {
+	display: none;
+}
+#loading {
+	width: 640px;
+	height: 30px;
+	color: #fff;
+	position: relative;
+}
+#progress {
+	display: block;
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	background-color: #0f7;
+}
+#percent {
+	position: absolute;
+	z-index: 2;
+	left: 0;
+	right: 0;
+	text-align: center;
+	font: 25px/30px sans-serif;
+	text-shadow: 0 0 3px #000;
+}
