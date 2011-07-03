@@ -8,3 +8,6 @@ commands:
   vvlen:
     description: Get the number of chunks currently in the queue. Requires OP status.
     usage: /vvlen
+  genregion:
+    description: Generate a region of 1024 chunks. Requires OP status.
+    usage: /genregion x z [world]

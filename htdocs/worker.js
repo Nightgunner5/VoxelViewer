@@ -116,13 +116,13 @@ onerror = function( event ) {
 	postMessage( { action: 'error', event: event } );
 };
 
-var blocks;
+var blocks, rawChunk;
 function getChunk( world, chunkX, chunkZ ) {
 	try {
 		var http = new XMLHttpRequest();
 		http.open( 'GET', world + '/chunk.' + chunkX + '.' + chunkZ + '.json.gz', false );
 		http.send( null );
-		var rawChunk = JSON.parse( http.responseText );
+		rawChunk = JSON.parse( http.responseText );
 	} catch (ex) {
 		postMessage( { action: 'chunkNotFound', world: world, x: chunkX, z: chunkZ } );
 		return;
@@ -250,6 +250,8 @@ function getChunk( world, chunkX, chunkZ ) {
 					);
 					lighting.push.apply( lighting, getLighting( x, y, z, faces.TOP ) );
 				}
+				if ( blocks[x][y][z].id == blockTypes.WATER || blocks[x][y][z].id == blockTypes.STATIONARY_WATER )
+					continue;
 				if ( !blocks[x - 1] || !blocks[x - 1][y][z] || ( blocks[x - 1][y][z].id != blocks[x][y][z].id && blockTypes.notOpaque.indexOf( blocks[x - 1][y][z].id ) != -1 ) ) {
 					if ( specialVerts( blocks[x][y][z].id, faces.WEST, x + chunkX * 16, y, z + chunkZ * 16 ) )
 						vertices.push.apply( vertices, specialVerts( blocks[x][y][z].id, faces.WEST, x + chunkX * 16, y, z + chunkZ * 16 ) );
@@ -343,6 +345,67 @@ function getChunk( world, chunkX, chunkZ ) {
 
 	postMessage( { action: 'chunk', world: world, x: chunkX, z: chunkZ, vertices: vertices, polys: polys, normals: normals, texcoords: texcoords, lighting: lighting } );
 }
+
+/*function findContiguousAreas() {
+	const min_size = 30; // 30 blocks
+	const iter = 10;
+
+	var b = new Uint8Array( rawChunk ); // Strips off the data bits, leaving only the block IDs behind.
+
+	function contig( block ) {
+		var t = b[block];
+
+		var todo = [block];
+
+		function _( x, y, z, a ) {
+			a.push( ( x << 11 ) | ( z << 7 ) | y );
+			for ( var i = -1; i < 2; i++ ) {
+				for ( var j = -1; j < 2; j++ ) {
+					for ( var k = -1; k < 2; k++ ) {
+						if ( i == 0 && j == 0 && k == 0 )
+							continue;
+						if ( x + i > 15 || x + i < 0 || y + j > 127 || y + j < 0 || z + k > 15 || z + k < 0 )
+							continue;
+						var loc = ( ( x + i ) << 11 ) | ( ( z + k ) << 7 ) | ( y + j );
+						if ( a.indexOf( loc ) == -1 && b[loc] == t ) {
+							todo.push( loc );
+						}
+					}
+				}
+			}
+		}
+
+		var blocks = [];
+
+		while ( todo.length ) {
+			var loc = todo.shift();
+
+			_( loc >> 11, ( loc >> 7 ) & 0xf, loc & 0x7f, blocks );
+		}
+
+		return blocks;
+	}
+
+	var areas = [];
+
+	for ( var i = 0; i < iter; i++ ) {
+		var block = ~~( Math.random() * b.length );
+		if ( !b[block] || block & 0x7f < 64 )
+			continue;
+
+		var area = contig( block );
+		if ( area.length >= min_size ) {
+			areas.push( area );
+			area.forEach( function( block ) {
+				b[block] = 0;
+			} );
+		}
+	}
+
+	return areas.sort( function( a, b ) {
+		return b.length - a.length;
+	} );
+}*/
 
 const faces = {
 	TOP: 0,

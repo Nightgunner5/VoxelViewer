@@ -1,0 +1,121 @@
+<script type="text/javascript">
+var rawChunk = [];
+for ( var x = -32; x <= 32; x++ ) {
+	for ( var z = -32; z <= 32; z++ ) {
+		try {
+			var http = new XMLHttpRequest();
+			http.open( 'GET', 'world/chunk.' + x + '.' + z + '.json.gz', false );
+			http.send( null );
+			rawChunk.push( JSON.parse( http.responseText ) );
+		} catch ( ex ) {
+			
+		}
+	}
+}
+
+var time = 0;
+function findContiguousAreas( min_size, max_size, iter ) {
+	var start = new Date;
+	var b = new Uint8Array( rawChunk[~~( Math.random() * rawChunk.length )] ); // Strips off the data bits, leaving only the block IDs behind.
+
+	function contig( block ) {
+		var t = b[block];
+
+		var todo = [block];
+
+		var foundAir = false;
+
+		var blocks = [];
+
+		while ( todo.length && blocks.length <= max_size ) {
+			var loc = todo.shift(), x = loc >> 11, y = ( loc >> 7 ) & 0xf, z = loc & 0x7f;
+
+			blocks.push( loc );
+			for ( var i = -1; i < 2; i++ ) {
+				for ( var j = -1; j < 2; j++ ) {
+					for ( var k = -1; k < 2; k++ ) {
+						if ( i == 0 && j == 0 && k == 0 )
+							continue;
+						if ( x + i > 15 || x + i < 0 || y + j > 127 || y + j < 0 || z + k > 15 || z + k < 0 )
+							continue;
+						loc = ( ( x + i ) << 11 ) | ( ( z + k ) << 7 ) | ( y + j );
+						if ( b[loc] == t && blocks.indexOf( loc ) == -1 ) {
+							todo.push( loc );
+						}
+						if ( !b[loc] )
+							foundAir = true;
+					}
+				}
+			}
+		}
+		if ( blocks.length > max_size )
+			return [];
+
+		return foundAir ? blocks : [];
+	}
+
+	var areas = [];
+
+	for ( var i = 0; i < iter; i++ ) {
+		var block = ~~( Math.random() * b.length );
+		if ( !b[block] || block & 0x7f < 64 )
+			continue;
+
+		var area = contig( block );
+		if ( area.length >= min_size ) {
+			areas.push( area );
+			area.unshift( b[area[0]] );
+			area.forEach( function( block ) {
+				b[block] = 0;
+			} );
+		}
+	}
+
+	areas.sort( function( a, b ) {
+		return b.length - a.length;
+	} );
+
+	var end = new Date;
+
+	time += end - start;
+
+	return areas;
+}
+
+function stressTest( min, max, iter, times ) {
+	time = 0;
+	var f = {
+		i: 0,
+		a: 0,
+		t: 0,
+		n: 0,
+		c: {},
+		y: {}
+	};
+	for ( var i = 0; i < times; i++ ) {
+		var found = findContiguousAreas( min, max, iter ), fl = found.length;
+		for ( var j = 0; j < fl; j++ ) {
+			if ( !( ( found[j][0] ) in f.y ) )
+				f.y[found[j][0]] = 1;
+			else
+				f.y[found[j][0]]++;
+			if ( !( ( found[j].length - 1 ) in f.c ) )
+				f.c[found[j].length - 1] = 1;
+			else
+				f.c[found[j].length - 1]++;
+		}
+		if ( fl ) {
+			if ( !f.i || f.i > fl )
+				f.i = fl;
+			if ( f.a < fl )
+				f.a = fl;
+			f.t += fl;
+		} else {
+			f.n++;
+		}
+	}
+
+	console.log( ( time / times ) + 'ms each; Regions: ' + f.i + '..' + f.a + '; average ' + ~~( f.t / times ) + '; No result: ' + f.n );
+	console.log( 'Type of block in area: %o; Number of blocks in an area: %o', f.y, f.c );
+}
+</script>

@@ -177,25 +177,25 @@ function sendChunkRequest( worker ) {
 			if ( !( -z + _z in haveChunks['world'][-x + _x] ) ) {
 				haveChunks['world'][-x + _x][-z + _z] = false;
 				worker.postMessage( { action: 'getChunk', world: 'world', x: -x + _x, z: -z + _z } );
-				console.log( 'Sent request for chunk (' + (-x + _x) + ', ' + (-z + _z) + ')' );
+				//console.log( 'Sent request for chunk (' + (-x + _x) + ', ' + (-z + _z) + ')' );
 				return;
 			}
 			if ( !( -z + _z in haveChunks['world'][x + _x] ) ) {
 				haveChunks['world'][x + _x][-z + _z] = false;
 				worker.postMessage( { action: 'getChunk', world: 'world', x: x + _x, z: -z + _z } );
-				console.log( 'Sent request for chunk (' + (x + _x) + ', ' + (-z + _z) + ')' );
+				//console.log( 'Sent request for chunk (' + (x + _x) + ', ' + (-z + _z) + ')' );
 				return;
 			}
 			if ( !( z + _z in haveChunks['world'][-x + _x] ) ) {
 				haveChunks['world'][-x + _x][z + _z] = false;
 				worker.postMessage( { action: 'getChunk', world: 'world', x: -x + _x, z: z + _z } );
-				console.log( 'Sent request for chunk (' + (-x + _x) + ', ' + (z + _z) + ')' );
+				//console.log( 'Sent request for chunk (' + (-x + _x) + ', ' + (z + _z) + ')' );
 				return;
 			}
 			if ( !( z + _z in haveChunks['world'][x + _x] ) ) {
 				haveChunks['world'][x + _x][z + _z] = false;
 				worker.postMessage( { action: 'getChunk', world: 'world', x: x + _x, z: z + _z } );
-				console.log( 'Sent request for chunk (' + (x + _x) + ', ' + (z + _z) + ')' );
+				//console.log( 'Sent request for chunk (' + (x + _x) + ', ' + (z + _z) + ')' );
 				return;
 			}
 		}
@@ -244,7 +244,7 @@ function startWorkers() {
 	normals = [];
 	texcoords = [];
 	lighting = [];
-	for ( var i = 0; i < 4; i++ ) {
+//	for ( var i = 0; i < 4; i++ ) {
 		var worker = new Worker( 'worker.js' );
 		worker.onmessage = function( event ) {
 			var message = event.data;
@@ -261,13 +261,14 @@ function startWorkers() {
 					dirty = true;
 					updateProgress();
 					sendChunkRequest( this );
-					console.log( 'Recieved chunk (' + message.x + ', ' + message.z + ')' );
+					//console.log( 'Recieved chunk (' + message.x + ', ' + message.z + ')' );
+					//console.log( message.c + '; ' + message.contig.length + ( message.contig.length ? '; ' + message.contig[0].length : '' ) );
 					break;
 				case 'chunkNotFound':
 					haveChunks[message.world][message.x][message.z] = true;
 					updateProgress();
 					sendChunkRequest( this );
-					console.log( 'Chunk (' + message.x + ', ' + message.z + ') was not found' );
+					//console.log( 'Chunk (' + message.x + ', ' + message.z + ') was not found' );
 					break;
 				case 'unknownBlockType':
 					unknownBlockTypes[message.id] = message.name;
@@ -278,7 +279,7 @@ function startWorkers() {
 		};
 		sendChunkRequest( worker );
 		workers.push( worker );
-	}
+//	}
 }
 
 /*function rebuff() {
@@ -342,6 +343,7 @@ function resetCam() {
 	camZ = Math.PI / 4;
 	for ( var key in keys )
 		keys[key] = false;
+	dirty = active;
 }
 resetCam();
 

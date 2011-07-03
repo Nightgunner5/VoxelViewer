@@ -8,6 +8,7 @@ public class VoxelViewer extends JavaPlugin {
 	protected final VVListener listener = new VVListener(this);
 	protected final VVRebuild vvcache = new VVRebuild(this);
 	protected final VVLen vvlen = new VVLen(this);
+	protected final GenRegion genregion = new GenRegion(this);
 
 	@Override
 	public void onDisable() {
@@ -25,5 +26,6 @@ public class VoxelViewer extends JavaPlugin {
 
 		getCommand("vvcache").setExecutor(vvcache);
 		getCommand("vvlen").setExecutor(vvlen);
+		getCommand("genregion").setExecutor(genregion);
 	}
 }
